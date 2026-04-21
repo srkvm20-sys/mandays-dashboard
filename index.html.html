@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Testing Cost Dashboard — Phase I & II</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;1,400&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f1117; --s1:#161b24; --s2:#1c2330; --s3:#222a38;
+  --border:#2a3344; --border2:#344059;
+  --teal:#22c5a0; --teal-dim:#22c5a020;
+  --amber:#f5a623; --amber-dim:#f5a62320;
+  --red:#f05c5c; --red-dim:#f05c5c20;
+  --blue:#4d9de0; --blue-dim:#4d9de020;
+  --purple:#a78bfa; --purple-dim:#a78bfa20;
+  --text:#e8edf5; --muted:#7a8499; --muted2:#4a5468;
+  --r:10px;
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:1.75rem}
+.wrap{max-width:1200px;margin:0 auto}
+
+/* ── HEADER ── */
+.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2rem}
+.hdr-left{}
+.hdr-title{font-family:'Fraunces',serif;font-size:1.8rem;font-weight:700;letter-spacing:-.02em;line-height:1}
+.hdr-title span{color:var(--teal)}
+.hdr-sub{font-size:.72rem;color:var(--muted);margin-top:.35rem;letter-spacing:.06em;text-transform:uppercase;font-family:'DM Mono',monospace}
+.hdr-right{display:flex;flex-direction:column;align-items:flex-end;gap:.5rem}
+.sync-row{display:flex;align-items:center;gap:.6rem}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0;transition:background .3s}
+.sync-dot.live{background:var(--teal);box-shadow:0 0 6px var(--teal)}
+.sync-dot.error{background:var(--red);box-shadow:0 0 6px var(--red)}
+.sync-text{font-family:'DM Mono',monospace;font-size:.66rem;color:var(--muted)}
+.btn{font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;border:1px solid var(--border2);background:var(--s2);color:var(--text);padding:.4rem .9rem;border-radius:6px;cursor:pointer;transition:all .15s}
+.btn:hover{background:var(--s3);border-color:var(--teal);color:var(--teal)}
+.btn.primary{background:var(--teal);color:#0f1117;border-color:var(--teal)}
+.btn.primary:hover{background:#1aad8c;border-color:#1aad8c;color:#0f1117}
+
+/* ── CONFIG PANEL ── */
+.config-panel{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:1.25rem;margin-bottom:1.5rem;display:none}
+.config-panel.open{display:block}
+.config-title{font-size:.7rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-weight:600;margin-bottom:.85rem}
+.config-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-bottom:.85rem}
+.cfg-group{display:flex;flex-direction:column;gap:.3rem}
+.cfg-label{font-size:.65rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:500}
+.cfg-input{background:var(--s2);border:1px solid var(--border2);color:var(--text);font-family:'DM Mono',monospace;font-size:.75rem;padding:.45rem .65rem;border-radius:6px;outline:none;transition:border-color .15s}
+.cfg-input:focus{border-color:var(--teal)}
+.cfg-input::placeholder{color:var(--muted2)}
+.config-note{font-size:.7rem;color:var(--muted);line-height:1.6;padding:.65rem .85rem;background:var(--s2);border-radius:6px;border-left:3px solid var(--teal)}
+.config-note a{color:var(--teal);text-decoration:none}
+.config-note a:hover{text-decoration:underline}
+.config-actions{display:flex;gap:.5rem;margin-top:.85rem}
+.error-msg{font-size:.72rem;color:var(--red);margin-top:.5rem;font-family:'DM Mono',monospace;display:none}
+
+/* ── ALERT ── */
+.alert{background:var(--amber-dim);border:1px solid var(--amber);border-radius:var(--r);padding:.7rem 1rem;margin-bottom:1.25rem;font-size:.77rem;line-height:1.5;display:flex;gap:.65rem;align-items:flex-start}
+.alert.red{background:var(--red-dim);border-color:var(--red)}
+.alert strong{color:var(--amber)}
+.alert.red strong{color:var(--red)}
+
+/* ── SECTION LABEL ── */
+.sec{font-size:.63rem;text-transform:uppercase;letter-spacing:.12em;font-weight:600;color:var(--muted);margin:1.5rem 0 .75rem;display:flex;align-items:center;gap:.6rem}
+.sec::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── KPI ROW ── */
+.krow{display:grid;grid-template-columns:repeat(5,1fr);gap:.75rem;margin-bottom:1.1rem}
+.kpi{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.1rem;position:relative;overflow:hidden;animation:up .4s ease both}
+.kpi::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px}
+.kpi.ct::after{background:var(--teal)}.kpi.ca::after{background:var(--amber)}.kpi.cr::after{background:var(--red)}.kpi.cb::after{background:var(--blue)}.kpi.cp::after{background:var(--purple)}
+.kpi-l{font-size:.6rem;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin-bottom:.4rem;font-weight:500}
+.kpi-v{font-family:'DM Mono',monospace;font-size:1.45rem;font-weight:500;line-height:1}
+.kpi-s{font-size:.66rem;color:var(--muted);margin-top:.3rem;line-height:1.4}
+.prog{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:.35rem}
+.prog-f{height:100%;border-radius:2px}
+
+/* ── CARDS ── */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:var(--r);padding:1.3rem;animation:up .5s ease .15s both}
+.ctitle{font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;font-weight:600;color:var(--muted);margin-bottom:1rem;display:flex;align-items:center;gap:.45rem}
+.ctitle .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1rem}
+
+/* ── FINANCE SPLIT BOXES ── */
+.fsplit{display:grid;grid-template-columns:1fr 1fr;gap:.65rem;margin-bottom:.9rem}
+.fbox{border-radius:8px;padding:.85rem 1rem;border:1px solid var(--border)}
+.fbox.fb-client{background:var(--teal-dim);border-color:#22c5a040}
+.fbox.fb-qci{background:var(--blue-dim);border-color:#4d9de040}
+.fbox.fb-unbilled{background:var(--amber-dim);border-color:#f5a62340}
+.fbox.fb-total{background:var(--s2);border-color:var(--border2)}
+.fb-label{font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:.25rem}
+.fb-val{font-family:'DM Mono',monospace;font-size:1.35rem;font-weight:500}
+.fb-sub{font-size:.65rem;color:var(--muted);margin-top:.2rem}
+.fb-bar-wrap{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:.5rem}
+.fb-bar{height:100%;border-radius:2px}
+
+/* ── BIFURCATION TABLE ── */
+.bif-table{width:100%;border-collapse:collapse;font-size:.78rem}
+.bif-table th{font-size:.6rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600;padding:.55rem .8rem;border-bottom:1px solid var(--border2);text-align:left;background:var(--s2)}
+.bif-table td{padding:.6rem .8rem;border-bottom:1px solid var(--border);vertical-align:middle}
+.bif-table tr:last-child td{border-bottom:none}
+.bif-table tr:hover td{background:var(--s2)}
+.bif-table .total-row td{background:var(--s2);font-weight:600;border-top:2px solid var(--border2)}
+
+/* ── VENDOR TABLE ── */
+.vtable{width:100%;border-collapse:collapse;font-size:.76rem}
+.vtable th{font-size:.58rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600;padding:.5rem .75rem;border-bottom:1px solid var(--border2);text-align:left;white-space:nowrap;background:var(--s2)}
+.vtable td{padding:.5rem .75rem;border-bottom:1px solid var(--border);vertical-align:middle}
+.vtable tr:last-child td{border-bottom:none}
+.vtable tr:hover td{background:var(--s2)}
+.cost-cell{font-family:'DM Mono',monospace;font-size:.74rem}
+
+/* ── BADGES ── */
+.b{display:inline-block;font-size:.58rem;font-family:'DM Mono',monospace;padding:.12rem .4rem;border-radius:3px;font-weight:500;letter-spacing:.03em;white-space:nowrap;margin:1px}
+.b-fresh{background:#22c5a018;color:var(--teal);border:1px solid #22c5a030}
+.b-re{background:#f5a62318;color:var(--amber);border:1px solid #f5a62330}
+.b-client{background:#22c5a018;color:var(--teal)}
+.b-qci{background:#4d9de018;color:var(--blue)}
+.b-pending{background:#f5a62318;color:var(--amber)}
+.b-cat-sh{background:#22c5a015;color:var(--teal)}.b-cat-bg{background:#4d9de015;color:var(--blue)}.b-cat-un{background:#a78bfa15;color:var(--purple)}.b-cat-bt{background:#f5a62315;color:var(--amber)}.b-cat-nb{background:#f05c5c15;color:var(--red)}
+.b-done{background:#22c5a015;color:var(--teal)}.b-ongoing{background:#f5a62315;color:var(--amber)}.b-cancelled{background:#f05c5c15;color:var(--red)}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:.35rem;margin-bottom:.85rem;flex-wrap:wrap}
+.tab{font-size:.64rem;padding:.28rem .7rem;border-radius:4px;cursor:pointer;border:1px solid var(--border);background:transparent;font-family:'DM Sans',sans-serif;font-weight:600;letter-spacing:.05em;text-transform:uppercase;transition:all .15s;color:var(--muted)}
+.tab.active{background:var(--teal);color:#0f1117;border-color:var(--teal)}
+.tab:hover:not(.active){background:var(--s2);color:var(--text)}
+
+/* ── LOADING ── */
+.loading{text-align:center;padding:3rem;color:var(--muted);font-family:'DM Mono',monospace;font-size:.8rem}
+.spinner{width:28px;height:28px;border:2px solid var(--border2);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto .75rem}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── CHART TOOLTIP ── */
+.custom-tooltip{background:var(--s2);border:1px solid var(--border2);border-radius:8px;padding:.6rem .85rem;font-size:.73rem;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+
+footer{text-align:center;color:var(--muted2);font-size:.66rem;font-family:'DM Mono',monospace;margin-top:2rem;padding-top:1rem;border-top:1px solid var(--border)}
+
+@media print{.btn,.config-panel,#configToggle{display:none}body{background:#fff;color:#000;padding:.5rem}}
+@media(max-width:900px){.krow{grid-template-columns:repeat(2,1fr)}.g2,.g3{grid-template-columns:1fr}.fsplit{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-left">
+    <div class="hdr-title">Testing Cost <span>Finance Dashboard</span></div>
+    <div class="hdr-sub">Phase I &amp; II Man-Days · Auto-sync from Google Sheets</div>
+  </div>
+  <div class="hdr-right">
+    <div class="sync-row">
+      <div class="sync-dot" id="syncDot"></div>
+      <div class="sync-text" id="syncText">Not connected</div>
+    </div>
+    <div style="display:flex;gap:.4rem;flex-wrap:wrap;justify-content:flex-end">
+      <button class="btn" id="configToggle" onclick="toggleConfig()">⚙ Setup Google Sheet</button>
+      <button class="btn" id="refreshBtn" onclick="loadData()" style="display:none">↻ Refresh</button>
+      <button class="btn" onclick="window.print()">⬇ PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIG PANEL -->
+<div class="config-panel" id="configPanel">
+  <div class="config-title">Google Sheet Connection — 3 simple steps</div>
+  <div class="config-note">
+    <strong>Step 1:</strong> Open your Google Sheet "<em>Phase I and II Man-Days</em>" →
+    <strong>File → Share → Publish to web</strong> → Select the sheet tab → Choose <em>CSV</em> → Click <strong>Publish</strong>. Copy the URL given.<br><br>
+    <strong>Step 2:</strong> Paste that URL below. The dashboard will auto-read your sheet every time you open it.<br><br>
+    <strong>Step 3 (optional):</strong> Set column numbers matching your sheet. Defaults match the data structure seen so far.
+    <br><br>
+    ⚠️ <strong>No API key needed. No backend needed.</strong> The "Publish to web" URL is public-read — only people with the link can see the data.
+    <a href="https://support.google.com/docs/answer/37579" target="_blank">Learn more →</a>
+  </div>
+  <div class="config-grid" style="margin-top:.85rem">
+    <div class="cfg-group" style="grid-column:span 3">
+      <div class="cfg-label">Published CSV URL (from File → Share → Publish to web)</div>
+      <input class="cfg-input" id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/YOUR_ID/pub?output=csv&gid=0" style="width:100%">
+    </div>
+    <div class="cfg-group">
+      <div class="cfg-label">Col # — Vendor Name</div>
+      <input class="cfg-input" id="colVendor" value="2" placeholder="2">
+    </div>
+    <div class="cfg-group">
+      <div class="cfg-label">Col # — Category</div>
+      <input class="cfg-input" id="colCat" value="3" placeholder="3">
+    </div>
+    <div class="cfg-group">
+      <div class="cfg-label">Col # — Status</div>
+      <input class="cfg-input" id="colStatus" value="4" placeholder="4">
+    </div>
+    <div class="cfg-group">
+      <div class="cfg-label">Col # — Assessment Type</div>
+      <input class="cfg-input" id="colType" value="8" placeholder="8">
+    </div>
+    <div class="cfg-group">
+      <div class="cfg-label">Col # — Testing Cost</div>
+      <input class="cfg-input" id="colCost" value="24" placeholder="24">
+    </div>
+    <div class="cfg-group">
+      <div class="cfg-label">Col # — Billed to Client (Yes/blank)</div>
+      <input class="cfg-input" id="colBilled" value="28" placeholder="28">
+    </div>
+  </div>
+  <div class="error-msg" id="errorMsg"></div>
+  <div class="config-actions">
+    <button class="btn primary" onclick="saveAndLoad()">▶ Connect &amp; Load Data</button>
+    <button class="btn" onclick="loadDemo()">Use Demo Data</button>
+    <button class="btn" onclick="toggleConfig()">Cancel</button>
+  </div>
+</div>
+
+<!-- DASHBOARD (hidden until loaded) -->
+<div id="dashboard" style="display:none">
+
+  <!-- ALERT -->
+  <div class="alert" id="alertBanner"></div>
+
+  <!-- SECTION: KEY METRICS -->
+  <div class="sec">Testing Cost — Key Metrics</div>
+  <div class="krow" id="kpiRow"></div>
+
+  <!-- SECTION: FINANCE OVERVIEW -->
+  <div class="sec">Finance Breakdown — Billed to Client vs Billed to QCI vs Pending</div>
+  <div class="g2">
+    <div class="card">
+      <div class="ctitle"><span class="dot" style="background:var(--teal)"></span>Cost Flow Overview</div>
+      <div class="fsplit" id="finBoxes"></div>
+      <canvas id="finChart" height="160"></canvas>
+    </div>
+    <div class="card">
+      <div class="ctitle"><span class="dot" style="background:var(--amber)"></span>Fresh Assessment vs Re-Assessment — Cost Bifurcation</div>
+      <canvas id="typeChart" height="200"></canvas>
+      <div id="typeSummary" style="margin-top:.85rem"></div>
+    </div>
+  </div>
+
+  <!-- SECTION: BIFURCATION TABLE -->
+  <div class="sec">Detailed Bifurcation — Fresh &amp; Re-Assessment by Billing Status</div>
+  <div class="card" style="margin-bottom:1rem">
+    <div class="ctitle"><span class="dot" style="background:var(--blue)"></span>Amount Bifurcation Table</div>
+    <div style="overflow-x:auto"><table class="bif-table" id="bifTable"></table></div>
+  </div>
+
+  <!-- SECTION: VENDOR COST TABLE -->
+  <div class="sec">Vendor-wise Testing Cost — Billed to Client &amp; QCI</div>
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.85rem;flex-wrap:wrap;gap:.5rem">
+      <div class="ctitle" style="margin-bottom:0"><span class="dot" style="background:var(--purple)"></span>Per-Vendor Cost Register</div>
+      <div class="tabs" style="margin-bottom:0" id="tabRow"></div>
+    </div>
+    <div style="overflow-x:auto"><table class="vtable" id="vendorTable"></table></div>
+  </div>
+
+</div>
+
+<!-- LOADING STATE -->
+<div id="loadingState" class="loading" style="display:none">
+  <div class="spinner"></div>
+  Reading from Google Sheets...
+</div>
+
+<!-- WELCOME STATE -->
+<div id="welcomeState" style="text-align:center;padding:4rem 2rem;color:var(--muted)">
+  <div style="font-size:2.5rem;margin-bottom:1rem">📊</div>
+  <div style="font-family:'Fraunces',serif;font-size:1.3rem;color:var(--text);margin-bottom:.5rem">Connect your Google Sheet</div>
+  <div style="font-size:.82rem;line-height:1.6;max-width:420px;margin:0 auto .85rem">
+    Click <strong style="color:var(--teal)">Setup Google Sheet</strong> above to link <em>"Phase I and II Man-Days"</em> and this dashboard will auto-update whenever your sheet changes.
+  </div>
+  <button class="btn primary" onclick="loadDemo()">Try with Demo Data first</button>
+</div>
+
+<footer id="footerLine">Testing Cost Finance Dashboard · Phase I &amp; II · Auto-sync via Google Sheets</footer>
+</div>
+
+<script>
+/* ─── DEMO DATA (fallback / preview) ─────────────────────────────── */
+const DEMO = [
+  {vendor:"Verdant Group",cat:"Notebook",status:"Completed",type:"Fresh assessment",cost:2350,billed:true},
+  {vendor:"Verdant Group",cat:"Notebook",status:"Completed",type:"Fresh assessment",cost:2350,billed:true},
+  {vendor:"Manjeet Plastic Industries",cat:"Bag",status:"Completed",type:"Fresh assessment",cost:11150,billed:true},
+  {vendor:"MB Rubber",cat:"Shoes",status:"Completed",type:"Fresh assessment",cost:10550,billed:true},
+  {vendor:"Lehar Footwear",cat:"Shoes",status:"Completed",type:"Fresh assessment",cost:10550,billed:true},
+  {vendor:"Manjeet Plastic Industries",cat:"Shoes",status:"Completed",type:"Fresh assessment",cost:10550,billed:true},
+  {vendor:"Airform Shoes",cat:"Shoes",status:"Completed",type:"Fresh assessment",cost:10550,billed:true},
+  {vendor:"Shivaye Udyog LLP",cat:"Shoes",status:"Completed",type:"Fresh assessment",cost:10550,billed:true},
+  {vendor:"Abhilasha Commercials",cat:"Bag",status:"Completed",type:"Fresh assessment",cost:11150,billed:true},
+  {vendor:"Shivaye Udyog LLP",cat:"Bag",status:"Completed",type:"Fresh assessment",cost:11150,billed:true},
+  {vendor:"XO Footwear",cat:"Bag",status:"Completed",type:"Fresh assessment",cost:11150,billed:true},
+  {vendor:"OM Sports",cat:"Belt",status:"Cancelled",type:"Fresh assessment",cost:2550,billed:true},
+  {vendor:"XO Footwear",cat:"Shoes",status:"Completed",type:"Fresh assessment",cost:10550,billed:true},
+  {vendor:"Vinishma Technologies",cat:"Shoes",status:"Completed",type:"Fresh assessment",cost:10550,billed:true},
+  {vendor:"Powertech Electroinfra",cat:"Shoes",status:"Completed",type:"Fresh assessment",cost:10550,billed:true},
+  {vendor:"Manjeet Plastic Industries",cat:"Bag",status:"Completed",type:"Fresh assessment",cost:11150,billed:true},
+  {vendor:"Manjeet Plastic Industries",cat:"Bag",status:"Completed",type:"Re-assessment",cost:1400,billed:false},
+  {vendor:"Shivaye Udyog LLP",cat:"Bag",status:"Completed",type:"Re-assessment",cost:1750,billed:false},
+  {vendor:"Padamchand Milapchand Jain",cat:"Uniform",status:"Completed",type:"Fresh assessment",cost:3600,billed:true},
+  {vendor:"Padamchand Milapchand Jain",cat:"Uniform",status:"Completed",type:"Fresh assessment",cost:0,billed:true},
+  {vendor:"Padamchand Milapchand Jain",cat:"Uniform",status:"Completed",type:"Fresh assessment",cost:0,billed:true},
+  {vendor:"Padamchand Milapchand Jain",cat:"Uniform",status:"Completed",type:"Fresh assessment",cost:0,billed:true},
+  {vendor:"OM Sports",cat:"Belt",status:"Completed",type:"Fresh assessment",cost:2550,billed:true},
+  {vendor:"Vinishma Technologies",cat:"Bag",status:"Completed",type:"Fresh assessment",cost:11150,billed:false},
+  {vendor:"Sumaja Electroinfra",cat:"Bag",status:"Completed",type:"Fresh assessment",cost:11150,billed:true},
+  {vendor:"Powertech Electroinfra",cat:"Bag",status:"Completed",type:"Re-assessment",cost:1750,billed:true},
+  {vendor:"Attal Plastics",cat:"Belt",status:"Completed",type:"Fresh assessment",cost:2550,billed:false},
+  {vendor:"Kanchan India",cat:"Uniform",status:"Completed",type:"Fresh assessment",cost:3600,billed:true},
+  {vendor:"Kanchan India",cat:"Uniform",status:"Completed",type:"Fresh assessment",cost:0,billed:true},
+  {vendor:"Kanchan India",cat:"Uniform",status:"Completed",type:"Fresh assessment",cost:0,billed:true},
+  {vendor:"Kanchan India",cat:"Uniform",status:"Completed",type:"Fresh assessment",cost:0,billed:true},
+  {vendor:"Sunil Industries",cat:"Uniform",status:"On-going",type:"Fresh assessment",cost:0,billed:false},
+  {vendor:"Sunil Industries",cat:"Uniform",status:"On-going",type:"Fresh assessment",cost:0,billed:false},
+  {vendor:"Sunil Industries",cat:"Uniform",status:"On-going",type:"Fresh assessment",cost:0,billed:false},
+  {vendor:"Sunil Industries",cat:"Uniform",status:"On-going",type:"Fresh assessment",cost:0,billed:false},
+];
+
+/* ─── HELPERS ─────────────────────────────────────────────────────── */
+const fmt  = v => v > 0 ? '₹' + v.toLocaleString('en-IN') : '₹0';
+const fmtK = v => { if(!v) return '₹0'; if(v>=100000) return '₹'+(v/100000).toFixed(2)+'L'; if(v>=1000) return '₹'+(v/1000).toFixed(1)+'K'; return '₹'+v; };
+const isFresh = r => (r.type||'').toLowerCase().includes('fresh');
+const isReAssess = r => (r.type||'').toLowerCase().includes('re');
+const CAT_CLS = {Shoes:'b-cat-sh',Bag:'b-cat-bg',Uniform:'b-cat-un',Belt:'b-cat-bt',Notebook:'b-cat-nb'};
+const STC = {Completed:'b-done','On-going':'b-ongoing',Cancelled:'b-cancelled'};
+let charts = {};
+
+/* ─── CONFIG ──────────────────────────────────────────────────────── */
+function toggleConfig(){
+  const p=document.getElementById('configPanel');
+  p.classList.toggle('open');
+  // restore saved URL
+  const saved=localStorage.getItem('dashSheetUrl');
+  if(saved) document.getElementById('sheetUrl').value=saved;
+}
+function saveConfig(){
+  const url=document.getElementById('sheetUrl').value.trim();
+  if(url) localStorage.setItem('dashSheetUrl',url);
+  localStorage.setItem('dashColVendor',document.getElementById('colVendor').value);
+  localStorage.setItem('dashColCat',document.getElementById('colCat').value);
+  localStorage.setItem('dashColStatus',document.getElementById('colStatus').value);
+  localStorage.setItem('dashColType',document.getElementById('colType').value);
+  localStorage.setItem('dashColCost',document.getElementById('colCost').value);
+  localStorage.setItem('dashColBilled',document.getElementById('colBilled').value);
+}
+function getColIdx(key,def){return parseInt(localStorage.getItem(key)||def)-1}
+
+/* ─── LOAD FROM SHEET ─────────────────────────────────────────────── */
+async function saveAndLoad(){
+  saveConfig();
+  document.getElementById('configPanel').classList.remove('open');
+  await loadData();
+}
+
+async function loadData(){
+  const url = localStorage.getItem('dashSheetUrl');
+  if(!url){ loadDemo(); return; }
+
+  setState('loading');
+  try{
+    // Use CORS proxy to fetch CSV from Google Sheets publish URL
+    const proxyUrl = 'https://api.allorigins.win/raw?url='+encodeURIComponent(url);
+    const res = await fetch(proxyUrl, {cache:'no-store'});
+    if(!res.ok) throw new Error('Fetch failed: '+res.status);
+    const csv = await res.text();
+    const rows = parseCSV(csv);
+
+    const cVendor = getColIdx('dashColVendor','2');
+    const cCat    = getColIdx('dashColCat','3');
+    const cStatus = getColIdx('dashColStatus','4');
+    const cType   = getColIdx('dashColType','8');
+    const cCost   = getColIdx('dashColCost','24');
+    const cBilled = getColIdx('dashColBilled','28');
+
+    // Skip header rows (rows with no numeric ID in col 0)
+    const data = rows
+      .filter(r => r.length > cBilled && /^\d+$/.test((r[0]||'').trim()))
+      .map(r => ({
+        vendor: (r[cVendor]||'').trim(),
+        cat:    (r[cCat]||'').trim(),
+        status: (r[cStatus]||'').trim(),
+        type:   (r[cType]||'').trim(),
+        cost:   parseCost(r[cCost]),
+        billed: (r[cBilled]||'').trim().toLowerCase() === 'yes',
+      }))
+      .filter(r => r.vendor);
+
+    if(!data.length) throw new Error('No valid rows found. Check column numbers.');
+
+    setSyncStatus('live','Live · '+new Date().toLocaleTimeString());
+    document.getElementById('refreshBtn').style.display='inline-block';
+    renderDashboard(data, false);
+
+  } catch(e){
+    setSyncStatus('error','Connection failed');
+    const em=document.getElementById('errorMsg');
+    em.textContent='Error: '+e.message+'. Try "Use Demo Data" to preview.';
+    em.style.display='block';
+    document.getElementById('configPanel').classList.add('open');
+    setState('welcome');
+    console.error(e);
+  }
+}
+
+function parseCost(v){
+  if(!v) return 0;
+  const n=parseFloat((v+'').replace(/[₹,\s]/g,''));
+  return isNaN(n)?0:n;
+}
+
+function parseCSV(text){
+  return text.split('\n').map(line=>{
+    const cols=[]; let cur='', inQ=false;
+    for(let i=0;i<line.length;i++){
+      if(line[i]==='"'){inQ=!inQ}
+      else if(line[i]===','&&!inQ){cols.push(cur);cur=''}
+      else cur+=line[i];
+    }
+    cols.push(cur);
+    return cols;
+  });
+}
+
+function loadDemo(){
+  document.getElementById('configPanel').classList.remove('open');
+  setSyncStatus('live','Demo data (not live)');
+  document.getElementById('refreshBtn').style.display='none';
+  renderDashboard(DEMO, true);
+}
+
+/* ─── STATE ───────────────────────────────────────────────────────── */
+function setState(s){
+  document.getElementById('dashboard').style.display=s==='ready'?'block':'none';
+  document.getElementById('loadingState').style.display=s==='loading'?'block':'none';
+  document.getElementById('welcomeState').style.display=s==='welcome'?'block':'none';
+}
+function setSyncStatus(cls,text){
+  const d=document.getElementById('syncDot');
+  d.className='sync-dot '+cls;
+  document.getElementById('syncText').textContent=text;
+}
+
+/* ─── RENDER ──────────────────────────────────────────────────────── */
+function renderDashboard(D, isDemo){
+  setState('loading');
+  destroyCharts();
+
+  /* ── METRICS ── */
+  const totalCost   = D.reduce((s,r)=>s+r.cost,0);
+  const billedCl    = D.filter(r=>r.billed).reduce((s,r)=>s+r.cost,0);
+  const billedQCI   = billedCl; // Same pool — "Yes" = billed to client, which is recovered from QCI
+  const unbilled    = D.filter(r=>!r.billed).reduce((s,r)=>s+r.cost,0);
+  const freshCost   = D.filter(isFresh).reduce((s,r)=>s+r.cost,0);
+  const reCost      = D.filter(isReAssess).reduce((s,r)=>s+r.cost,0);
+  const freshBilled = D.filter(r=>isFresh(r)&&r.billed).reduce((s,r)=>s+r.cost,0);
+  const reBilled    = D.filter(r=>isReAssess(r)&&r.billed).reduce((s,r)=>s+r.cost,0);
+  const reUnbilled  = D.filter(r=>isReAssess(r)&&!r.billed).reduce((s,r)=>s+r.cost,0);
+  const freshUnbilled = D.filter(r=>isFresh(r)&&!r.billed).reduce((s,r)=>s+r.cost,0);
+  const billedPct   = totalCost>0?Math.round(billedCl/totalCost*100):0;
+
+  /* ── ALERT ── */
+  const alerts=[];
+  if(unbilled>0) alerts.push(`<strong>₹${unbilled.toLocaleString('en-IN')} pending</strong> — not yet billed to client (${D.filter(r=>!r.billed&&r.cost>0).length} entries)`);
+  if(reUnbilled>0) alerts.push(`<strong>₹${reUnbilled.toLocaleString('en-IN')} re-assessment cost</strong> unbilled — confirm if chargeable to client`);
+  if(isDemo) alerts.push('Showing <strong>demo data</strong>. Connect your sheet via Setup to see live numbers.');
+  document.getElementById('alertBanner').innerHTML = '⚠️ &nbsp;' + (alerts.join(' &nbsp;|&nbsp; ')||'All costs accounted for.');
+  document.getElementById('alertBanner').className = 'alert'+(unbilled>0?' red':'');
+
+  /* ── KPIs ── */
+  document.getElementById('kpiRow').innerHTML = [
+    {l:'Total Testing Cost',v:fmtK(totalCost),s:'All assessments combined',c:'cb',p:null},
+    {l:'Billed to Client',v:fmtK(billedCl),s:D.filter(r=>r.billed).length+' entries · '+billedPct+'% recovery',c:'ct',p:billedPct},
+    {l:'Pending / Unbilled',v:fmtK(unbilled),s:D.filter(r=>!r.billed&&r.cost>0).length+' entries not yet billed',c:'ca',p:null},
+    {l:'Fresh Assessment',v:fmtK(freshCost),s:'Billed: '+fmtK(freshBilled)+' · Pending: '+fmtK(freshUnbilled),c:'cp',p:null},
+    {l:'Re-Assessment',v:fmtK(reCost),s:'Billed: '+fmtK(reBilled)+' · Pending: '+fmtK(reUnbilled),c:'cr',p:null},
+  ].map((k,i)=>`
+    <div class="kpi ${k.c}" style="animation-delay:${.05+i*.05}s">
+      <div class="kpi-l">${k.l}</div>
+      <div class="kpi-v">${k.v}</div>
+      ${k.p!==null?`<div class="prog"><div class="prog-f" style="width:${k.p}%;background:var(--teal)"></div></div>`:''}
+      <div class="kpi-s">${k.s}</div>
+    </div>`).join('');
+
+  /* ── FINANCE BOXES ── */
+  document.getElementById('finBoxes').innerHTML = [
+    {l:'Total Owed to Testing IB',v:totalCost,s:'All testing costs',cls:'fb-total',bar:100,bc:'var(--muted)'},
+    {l:'Billed to Client',v:billedCl,s:D.filter(r=>r.billed).length+' entries (Yes flag)',cls:'fb-client',bar:billedPct,bc:'var(--teal)'},
+    {l:'Billed to QCI (Internal)',v:billedQCI,s:'Tracked via QCI billing cycle',cls:'fb-qci',bar:billedPct,bc:'var(--blue)'},
+    {l:'Not Yet Billed / Pending',v:unbilled,s:D.filter(r=>!r.billed&&r.cost>0).length+' entries',cls:'fb-unbilled',bar:totalCost>0?Math.round(unbilled/totalCost*100):0,bc:'var(--amber)'},
+  ].map(b=>`
+    <div class="fbox ${b.cls}">
+      <div class="fb-label">${b.l}</div>
+      <div class="fb-val">${fmtK(b.v)}</div>
+      <div class="fb-sub">${b.s}</div>
+      <div class="fb-bar-wrap"><div class="fb-bar" style="width:${b.bar}%;background:${b.bc}"></div></div>
+    </div>`).join('');
+
+  /* ── FINANCE CHART — stacked by category ── */
+  const catMap={};
+  D.forEach(r=>{
+    if(!catMap[r.cat]) catMap[r.cat]={cat:r.cat,billed:0,unbilled:0};
+    if(r.billed) catMap[r.cat].billed+=r.cost;
+    else catMap[r.cat].unbilled+=r.cost;
+  });
+  const cats=Object.values(catMap).filter(c=>c.billed+c.unbilled>0).sort((a,b)=>(b.billed+b.unbilled)-(a.billed+a.unbilled));
+  charts.fin = new Chart(document.getElementById('finChart'),{
+    type:'bar',
+    data:{labels:cats.map(c=>c.cat),datasets:[
+      {label:'Billed to Client',data:cats.map(c=>c.billed),backgroundColor:'#22c5a077',borderRadius:[4,4,0,0],stack:'s'},
+      {label:'Not Yet Billed',data:cats.map(c=>c.unbilled),backgroundColor:'#f5a62366',borderRadius:[4,4,0,0],stack:'s'},
+    ]},
+    options:{responsive:true,maintainAspectRatio:true,aspectRatio:2.1,
+      plugins:{legend:{labels:{font:{family:'DM Sans',size:10},color:'#7a8499',boxWidth:10}},
+        tooltip:{callbacks:{label:ctx=>' ₹'+ctx.raw.toLocaleString('en-IN')},
+          backgroundColor:'#1c2330',borderColor:'#2a3344',borderWidth:1,
+          titleColor:'#e8edf5',bodyColor:'#7a8499',titleFont:{family:'DM Mono'}}},
+      scales:{x:{stacked:true,grid:{display:false},ticks:{color:'#7a8499',font:{size:10,family:'DM Sans'}}},
+        y:{stacked:true,grid:{color:'#2a3344'},ticks:{color:'#7a8499',font:{size:9,family:'DM Mono'},callback:v=>'₹'+Math.round(v/1000)+'K'}}}}
+  });
+
+  /* ── TYPE CHART — Fresh vs Re-assess breakdown ── */
+  const freshBilledCount  = D.filter(r=>isFresh(r)&&r.billed).length;
+  const freshUnbilledCount= D.filter(r=>isFresh(r)&&!r.billed).length;
+  const reBilledCount     = D.filter(r=>isReAssess(r)&&r.billed).length;
+  const reUnbilledCount   = D.filter(r=>isReAssess(r)&&!r.billed).length;
+  charts.type = new Chart(document.getElementById('typeChart'),{
+    type:'bar',
+    data:{
+      labels:['Fresh — Billed','Fresh — Unbilled','Re-assess — Billed','Re-assess — Unbilled'],
+      datasets:[{
+        data:[freshBilled,freshUnbilled,reBilled,reUnbilled],
+        backgroundColor:['#22c5a077','#22c5a033','#f5a62377','#f5a62333'],
+        borderRadius:6,borderSkipped:false
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:true,aspectRatio:1.6,indexAxis:'y',
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:ctx=>' ₹'+ctx.raw.toLocaleString('en-IN')+' ('+[freshBilledCount,freshUnbilledCount,reBilledCount,reUnbilledCount][ctx.dataIndex]+' entries)'},
+          backgroundColor:'#1c2330',borderColor:'#2a3344',borderWidth:1,
+          titleColor:'#e8edf5',bodyColor:'#7a8499'}},
+      scales:{x:{grid:{color:'#2a3344'},ticks:{color:'#7a8499',font:{size:9,family:'DM Mono'},callback:v=>'₹'+Math.round(v/1000)+'K'}},
+        y:{grid:{display:false},ticks:{color:'#e8edf5',font:{size:10,family:'DM Sans'}}}}}
+  });
+  document.getElementById('typeSummary').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem">
+      ${[
+        {l:'Fresh · Billed',v:fmtK(freshBilled),n:freshBilledCount,c:'var(--teal)'},
+        {l:'Fresh · Unbilled',v:fmtK(freshUnbilled),n:freshUnbilledCount,c:'var(--amber)'},
+        {l:'Re-assess · Billed',v:fmtK(reBilled),n:reBilledCount,c:'var(--blue)'},
+        {l:'Re-assess · Unbilled',v:fmtK(reUnbilled),n:reUnbilledCount,c:'var(--red)'},
+      ].map(s=>`<div style="background:var(--s2);border:1px solid var(--border);border-radius:7px;padding:.6rem .75rem">
+        <div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:.25rem">${s.l}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:1.05rem;color:${s.c}">${s.v}</div>
+        <div style="font-size:.65rem;color:var(--muted)">${s.n} entries</div>
+      </div>`).join('')}
+    </div>`;
+
+  /* ── BIFURCATION TABLE ── */
+  const rows=[];
+  const cats2=[...new Set(D.map(r=>r.cat))].sort();
+  cats2.forEach(cat=>{
+    const fresh   = D.filter(r=>r.cat===cat&&isFresh(r));
+    const re      = D.filter(r=>r.cat===cat&&isReAssess(r));
+    const fBilled = fresh.filter(r=>r.billed).reduce((s,r)=>s+r.cost,0);
+    const fUnbill = fresh.filter(r=>!r.billed).reduce((s,r)=>s+r.cost,0);
+    const rBilled = re.filter(r=>r.billed).reduce((s,r)=>s+r.cost,0);
+    const rUnbill = re.filter(r=>!r.billed).reduce((s,r)=>s+r.cost,0);
+    const total   = fBilled+fUnbill+rBilled+rUnbill;
+    if(!total) return;
+    rows.push({cat,fBilled,fUnbill,fTotal:fBilled+fUnbill,rBilled,rUnbill,rTotal:rBilled+rUnbill,total});
+  });
+  const gtFB=rows.reduce((s,r)=>s+r.fBilled,0), gtFU=rows.reduce((s,r)=>s+r.fUnbill,0);
+  const gtRB=rows.reduce((s,r)=>s+r.rBilled,0), gtRU=rows.reduce((s,r)=>s+r.rUnbill,0);
+  const gt=gtFB+gtFU+gtRB+gtRU;
+  document.getElementById('bifTable').innerHTML=`
+  <thead>
+    <tr style="background:var(--s3)">
+      <th rowspan="2">Category</th>
+      <th colspan="3" style="text-align:center;border-bottom:1px solid var(--teal);color:var(--teal)">Fresh Assessment</th>
+      <th colspan="3" style="text-align:center;border-bottom:1px solid var(--amber);color:var(--amber)">Re-Assessment</th>
+      <th rowspan="2">Grand Total</th>
+    </tr>
+    <tr>
+      <th style="color:var(--teal)">Billed to Client</th>
+      <th style="color:var(--amber)">Unbilled</th>
+      <th>Fresh Total</th>
+      <th style="color:var(--teal)">Billed to Client</th>
+      <th style="color:var(--amber)">Unbilled</th>
+      <th>Re-assess Total</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${rows.map(r=>`<tr>
+      <td><span class="b ${CAT_CLS[r.cat]||''}">${r.cat}</span></td>
+      <td class="cost-cell" style="color:var(--teal)">${r.fBilled>0?fmt(r.fBilled):'—'}</td>
+      <td class="cost-cell" style="color:var(--amber)">${r.fUnbill>0?fmt(r.fUnbill):'—'}</td>
+      <td class="cost-cell">${r.fTotal>0?fmt(r.fTotal):'—'}</td>
+      <td class="cost-cell" style="color:var(--teal)">${r.rBilled>0?fmt(r.rBilled):'—'}</td>
+      <td class="cost-cell" style="color:var(--amber)">${r.rUnbill>0?fmt(r.rUnbill):'—'}</td>
+      <td class="cost-cell">${r.rTotal>0?fmt(r.rTotal):'—'}</td>
+      <td class="cost-cell" style="font-weight:600">${fmt(r.total)}</td>
+    </tr>`).join('')}
+    <tr class="total-row">
+      <td>TOTAL</td>
+      <td class="cost-cell" style="color:var(--teal)">${fmt(gtFB)}</td>
+      <td class="cost-cell" style="color:var(--amber)">${fmt(gtFU)}</td>
+      <td class="cost-cell">${fmt(gtFB+gtFU)}</td>
+      <td class="cost-cell" style="color:var(--teal)">${fmt(gtRB)}</td>
+      <td class="cost-cell" style="color:var(--amber)">${fmt(gtRU)}</td>
+      <td class="cost-cell">${fmt(gtRB+gtRU)}</td>
+      <td class="cost-cell" style="color:var(--teal)">${fmt(gt)}</td>
+    </tr>
+  </tbody>`;
+
+  /* ── VENDOR TABLE ── */
+  let curTab='all';
+  const tabs=['all','billed','unbilled','re-assessment'];
+  document.getElementById('tabRow').innerHTML=tabs.map(t=>`<button class="tab ${t==='all'?'active':''}" onclick="setVTab('${t}')">${t}</button>`).join('');
+  function renderVendorTable(){
+    let rows2=D;
+    if(curTab==='billed')         rows2=D.filter(r=>r.billed&&r.cost>0);
+    else if(curTab==='unbilled')  rows2=D.filter(r=>!r.billed&&r.cost>0);
+    else if(curTab==='re-assessment') rows2=D.filter(isReAssess);
+    // group by vendor
+    const vMap={};
+    rows2.forEach(r=>{
+      if(!vMap[r.vendor]) vMap[r.vendor]={v:r.vendor,cats:new Set(),entries:0,totalCost:0,billedCl:0,unbilled:0,fresh:0,re:0,freshB:0,reB:0};
+      vMap[r.vendor].entries++;
+      vMap[r.vendor].totalCost+=r.cost;
+      vMap[r.vendor].cats.add(r.cat);
+      if(r.billed) vMap[r.vendor].billedCl+=r.cost; else vMap[r.vendor].unbilled+=r.cost;
+      if(isFresh(r)){vMap[r.vendor].fresh+=r.cost;if(r.billed)vMap[r.vendor].freshB+=r.cost;}
+      if(isReAssess(r)){vMap[r.vendor].re+=r.cost;if(r.billed)vMap[r.vendor].reB+=r.cost;}
+    });
+    const vList=Object.values(vMap).filter(v=>v.totalCost>0).sort((a,b)=>b.totalCost-a.totalCost);
+    document.getElementById('vendorTable').innerHTML=`
+    <thead><tr>
+      <th>Vendor</th><th>Category</th><th>Entries</th>
+      <th style="color:var(--teal)">Billed to Client</th>
+      <th style="color:var(--blue)">Billed to QCI</th>
+      <th style="color:var(--amber)">Unbilled</th>
+      <th style="color:var(--purple)">Fresh Cost</th>
+      <th style="color:var(--red)">Re-assess Cost</th>
+      <th>Grand Total</th>
+    </tr></thead>
+    <tbody>
+      ${vList.map(v=>`<tr>
+        <td style="font-weight:600;white-space:nowrap;font-size:.74rem">${v.v}</td>
+        <td>${[...v.cats].map(c=>`<span class="b ${CAT_CLS[c]||''}">${c}</span>`).join('')}</td>
+        <td style="font-family:'DM Mono',monospace;text-align:center">${v.entries}</td>
+        <td class="cost-cell" style="color:var(--teal)">${v.billedCl>0?fmt(v.billedCl):'—'}</td>
+        <td class="cost-cell" style="color:var(--blue)">${v.billedCl>0?fmt(v.billedCl):'—'}</td>
+        <td class="cost-cell" style="color:var(--amber)">${v.unbilled>0?fmt(v.unbilled):'—'}</td>
+        <td class="cost-cell" style="color:var(--purple)">${v.fresh>0?fmt(v.fresh):'—'}</td>
+        <td class="cost-cell" style="color:var(--red)">${v.re>0?fmt(v.re):'—'}</td>
+        <td class="cost-cell" style="font-weight:700">${fmt(v.totalCost)}</td>
+      </tr>`).join('')}
+      <tr style="background:var(--s2);font-weight:700;border-top:2px solid var(--border2)">
+        <td colspan="3" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)">TOTAL</td>
+        <td class="cost-cell" style="color:var(--teal)">${fmt(vList.reduce((s,v)=>s+v.billedCl,0))}</td>
+        <td class="cost-cell" style="color:var(--blue)">${fmt(vList.reduce((s,v)=>s+v.billedCl,0))}</td>
+        <td class="cost-cell" style="color:var(--amber)">${fmt(vList.reduce((s,v)=>s+v.unbilled,0))}</td>
+        <td class="cost-cell" style="color:var(--purple)">${fmt(vList.reduce((s,v)=>s+v.fresh,0))}</td>
+        <td class="cost-cell" style="color:var(--red)">${fmt(vList.reduce((s,v)=>s+v.re,0))}</td>
+        <td class="cost-cell">${fmt(vList.reduce((s,v)=>s+v.totalCost,0))}</td>
+      </tr>
+    </tbody>`;
+  }
+  window.setVTab=function(t){curTab=t;document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.textContent.toLowerCase()===t));renderVendorTable()};
+  renderVendorTable();
+
+  document.getElementById('footerLine').textContent =
+    'Testing Cost Dashboard · '+D.length+' assessments · ₹'+totalCost.toLocaleString('en-IN')+' total · '+(isDemo?'Demo Data':'Live from Google Sheets')+' · '+new Date().toLocaleDateString('en-IN');
+
+  setState('ready');
+}
+
+function destroyCharts(){
+  Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}});
+  charts={};
+}
+
+/* ─── AUTO-LOAD ON START ─────────────────────────────────────────── */
+window.addEventListener('DOMContentLoaded',()=>{
+  const saved=localStorage.getItem('dashSheetUrl');
+  if(saved){
+    document.getElementById('sheetUrl').value=saved;
+    loadData();
+  } else {
+    setState('welcome');
+  }
+  // Restore col values
+  ['colVendor','colCat','colStatus','colType','colCost','colBilled'].forEach(id=>{
+    const k='dash'+id.charAt(0).toUpperCase()+id.slice(1);
+    const v=localStorage.getItem(k);
+    if(v) document.getElementById(id).value=v;
+  });
+});
+</script>
+</body>
+</html>
